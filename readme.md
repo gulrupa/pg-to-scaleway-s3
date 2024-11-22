@@ -118,15 +118,3 @@ Une fois l'exécution terminée, vous pouvez vérifier :
 ### Contribuer
 
 Les contributions sont les bienvenues ! Si vous souhaitez améliorer ce projet, vous pouvez soumettre une demande de tirage (pull request).
-
----
-
-## Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus d'informations.
-
----
-
-### Notes
-
-Ce README fournit des instructions complètes pour l'utilisation de votre solution de sauvegarde PostgreSQL vers Scaleway S3. Vous pouvez adapter ce modèle selon vos besoins spécifiques et le rendre encore plus flexible, par exemple en ajoutant des fonctionnalités telles que la gestion des erreurs ou la planification de sauvegardes régulières.
