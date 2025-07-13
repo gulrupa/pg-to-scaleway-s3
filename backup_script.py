@@ -16,7 +16,7 @@ S3_REGION = os.getenv("S3_REGION")
 S3_PREFIX = os.getenv("S3_PREFIX", "")
 S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY")
 S3_SECRET_KEY = os.getenv("S3_SECRET_KEY")
-S3_ENDPOINT = f"https://{S3_BUCKET}.s3.{S3_REGION}.scw.cloud"
+S3_ENDPOINT = os.getenv("S3_ENDPOINT")
 
 ARCHIVE_NAME = os.getenv("ARCHIVE_NAME", "backup")
 
