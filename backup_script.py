@@ -52,7 +52,7 @@ def upload_to_s3():
             "s3",
             aws_access_key_id=S3_ACCESS_KEY,
             aws_secret_access_key=S3_SECRET_KEY,
-            region_name: S3_REGION,
+            region_name=S3_REGION,
             endpoint_url=S3_ENDPOINT  # Scaleway S3 endpoint
         )
         # Ajouter un préfixe si spécifié
