@@ -1,120 +1,232 @@
-Voici un README adapté pour votre projet GitHub :
+# Backup PostgreSQL vers Scaleway S3
 
----
-
-# PostgreSQL Database Backup and Upload to Scaleway S3
-
-Ce projet permet de créer une sauvegarde d'une base de données PostgreSQL en utilisant `pg_dump`, puis de télécharger le fichier exporté dans un bucket S3 Scaleway. Ce processus est automatisé via Docker et un script Python qui gère l'export et le téléversement du fichier.
-
-## Prérequis
-
-- **Docker** : Pour construire et exécuter l'application dans un environnement isolé.
-- **Scaleway S3 Bucket** : Un compte Scaleway avec un bucket S3 configuré pour le stockage des sauvegardes.
-- **PostgreSQL** : Base de données PostgreSQL accessible à partir du conteneur Docker.
+Script de backup automatique de bases de données PostgreSQL vers Scaleway S3, conçu pour fonctionner dans un environnement Kubernetes.
 
 ## Fonctionnalités
 
-- **Export PostgreSQL** : Utilise `pg_dump` pour exporter une base de données PostgreSQL au format `.tar`.
-- **Téléversement vers Scaleway S3** : Le fichier de sauvegarde est téléchargé vers un bucket Scaleway S3.
-- **Variables d'environnement** : Les paramètres nécessaires sont configurés via des variables d'environnement pour la flexibilité et la sécurité.
+- Backup automatique de bases PostgreSQL
+- Upload vers Scaleway S3
+- Nettoyage automatique des fichiers temporaires
+- Gestion d'erreurs robuste
+- Logs détaillés
+- Configuration via variables d'environnement
 
 ## Structure du projet
 
 ```
-.
-├── Dockerfile
-├── backup_script.py
-└── README.md
+pg-to-scaleway-s3/
+├── backup_script.py      # Script principal de backup
+├── test_backup.py        # Script de test de configuration
+├── deployment.yaml       # Configuration Kubernetes CronJob
+├── dockerfile           # Image Docker
+├── start.sh             # Script de démarrage
+└── README.md            # Ce fichier
 ```
 
-- **Dockerfile** : Définit l'image Docker utilisée pour créer l'environnement d'exécution, installer les dépendances et exécuter le script Python.
-- **backup_script.py** : Le script Python qui effectue la sauvegarde de la base de données et télécharge le fichier vers S3.
+## Configuration requise
 
-## Variables d'Environnement
+### Variables d'environnement
 
-Pour que le programme fonctionne correctement, vous devez définir les variables d'environnement suivantes lors de l'exécution du conteneur Docker.
+Le script nécessite les variables d'environnement suivantes :
 
-### Variables PostgreSQL
+| Variable | Description | Exemple |
+|----------|-------------|---------|
+| `PG_HOST` | Hôte PostgreSQL | `postgres.example.com` |
+| `PG_PORT` | Port PostgreSQL | `5432` |
+| `PG_USER` | Utilisateur PostgreSQL | `backup_user` |
+| `PG_PASSWORD` | Mot de passe PostgreSQL | `secret_password` |
+| `PG_DB` | Nom de la base de données | `docuseal` |
+| `S3_BUCKET` | Nom du bucket S3 | `docuseal-backups` |
+| `S3_REGION` | Région S3 | `fr-par` |
+| `S3_ACCESS_KEY` | Clé d'accès S3 | `SCWXXXXXXXXXXXXXXX` |
+| `S3_SECRET_KEY` | Clé secrète S3 | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `S3_ENDPOINT` | Endpoint S3 Scaleway | `https://s3.fr-par.scw.cloud` |
+| `S3_PREFIX` | Préfixe optionnel pour les fichiers | `backups/` |
+| `ARCHIVE_NAME` | Nom de base des archives | `backup` |
 
-- `PG_HOST` : Adresse de l'hôte PostgreSQL.
-- `PG_PORT` : Port du serveur PostgreSQL (par défaut 5432).
-- `PG_USER` : Nom d'utilisateur pour se connecter à PostgreSQL.
-- `PG_PASSWORD` : Mot de passe pour l'utilisateur PostgreSQL.
-- `PG_DB` : Nom de la base de données à sauvegarder.
+## Déploiement
 
-### Variables Scaleway S3
+### 1. Test local
 
-- `S3_BUCKET` : Nom du bucket Scaleway S3 où le fichier sera téléchargé.
-- `S3_REGION` : Région de votre bucket Scaleway S3 (par exemple, "fr-par").
-- `S3_PREFIX` : (Optionnel) Préfixe pour organiser les fichiers dans le bucket.
-- `S3_ACCESS_KEY` : Clé d'accès AWS pour interagir avec Scaleway S3.
-- `S3_SECRET_KEY` : Clé secrète d'accès AWS pour interagir avec Scaleway S3.
-
-### Autres Variables
-
-- `ARCHIVE_NAME` : (Optionnel) Nom de base pour le fichier de sauvegarde. Par défaut, il est défini sur `backup`.
-  
-## Utilisation
-
-### Étape 1 : Créer l'image Docker
-
-Clonez ce dépôt et naviguez dans le répertoire contenant le `Dockerfile`.
+Avant de déployer, testez la configuration localement :
 
 ```bash
-git clone <URL-du-dépôt>
-cd <nom-du-dossier>
+# Installer les dépendances
+pip install boto3
+
+# Définir les variables d'environnement
+export PG_HOST="your-postgres-host"
+export PG_PORT="5432"
+export PG_USER="your-user"
+export PG_PASSWORD="your-password"
+export PG_DB="docuseal"
+export S3_BUCKET="your-bucket"
+export S3_REGION="fr-par"
+export S3_ACCESS_KEY="your-access-key"
+export S3_SECRET_KEY="your-secret-key"
+export S3_ENDPOINT="https://s3.fr-par.scw.cloud"
+
+# Tester la configuration
+python test_backup.py
+
+# Tester le script de backup
+python backup_script.py
 ```
 
-Ensuite, construisez l'image Docker :
+### 2. Déploiement Kubernetes
+
+#### Créer le secret
 
 ```bash
-docker build -t pg-backup-s3 .
+kubectl create secret generic pg-backup-secret \
+  --from-literal=PG_HOST=your-postgres-host \
+  --from-literal=PG_PORT=5432 \
+  --from-literal=PG_USER=your-user \
+  --from-literal=PG_PASSWORD=your-password \
+  --from-literal=S3_ENDPOINT=https://s3.fr-par.scw.cloud \
+  --from-literal=S3_REGION=fr-par \
+  --from-literal=S3_ACCESS_KEY=your-access-key \
+  --from-literal=S3_SECRET_KEY=your-secret-key
 ```
 
-### Étape 2 : Exécuter le conteneur Docker
-
-Avant d'exécuter le conteneur, assurez-vous de définir les variables d'environnement nécessaires (comme expliqué dans la section précédente). Vous pouvez passer ces variables directement lors de l'exécution du conteneur avec la commande suivante :
+#### Déployer le CronJob
 
 ```bash
-docker run -e PG_HOST=<your-db-host> \
-           -e PG_PORT=<your-db-port> \
-           -e PG_USER=<your-db-user> \
-           -e PG_PASSWORD=<your-db-password> \
-           -e PG_DB=<your-db-name> \
-           -e S3_BUCKET=<your-bucket-name> \
-           -e S3_REGION=<your-region> \
-           -e S3_ACCESS_KEY=<your-access-key> \
-           -e S3_SECRET_KEY=<your-secret-key> \
-           -v /path/to/local/backup/directory:/backup \
-           pg-backup-s3
+kubectl apply -f deployment.yaml
 ```
 
-### Description des options :
+#### Vérifier le déploiement
 
-- **-e** : Définit les variables d'environnement nécessaires pour la connexion à PostgreSQL et à Scaleway S3.
-- **-v /path/to/local/backup/directory:/backup** : Monte un volume pour stocker la sauvegarde PostgreSQL exportée sur votre machine locale.
-  
-Le fichier de sauvegarde sera nommé sous la forme `<ARCHIVE_NAME>_<DATE_TIME>.tar`, et sera stocké à la fois localement dans le volume monté et dans le bucket S3.
+```bash
+# Voir les CronJobs
+kubectl get cronjobs
 
-### Étape 3 : Vérifier la sauvegarde
+# Voir les jobs récents
+kubectl get jobs
 
-Une fois l'exécution terminée, vous pouvez vérifier :
-
-1. **La sauvegarde locale** : Le fichier `.tar` de la base de données sera stocké dans le répertoire local monté.
-2. **Le téléversement sur Scaleway S3** : Connectez-vous à votre compte Scaleway et vérifiez que le fichier a bien été téléchargé dans le bucket S3.
-
-## Personnalisation
-
-- **Nom de fichier de sauvegarde** : Vous pouvez personnaliser le nom du fichier de sauvegarde en définissant la variable `ARCHIVE_NAME` via les variables d'environnement.
-- **Préfixe S3** : Utilisez `S3_PREFIX` pour organiser les fichiers dans le bucket.
+# Voir les logs du dernier job
+kubectl logs job/pg-backup-s3-docuseal-<timestamp>
+```
 
 ## Dépannage
 
-- **Problèmes de connexion PostgreSQL** : Vérifiez que les informations de connexion sont correctes et que le serveur PostgreSQL est accessible depuis le conteneur.
-- **Problèmes avec S3** : Si le téléchargement échoue, assurez-vous que les clés d'accès S3 sont correctes et que le conteneur a bien accès à Internet.
+### Le job ne se termine pas
 
----
+**Causes possibles :**
 
-### Contribuer
+1. **Volume manquant** : Le script écrit dans `/backup/` mais aucun volume n'est monté
+2. **Timeout de connexion** : La connexion PostgreSQL ou S3 prend trop de temps
+3. **Erreur silencieuse** : Le script plante sans afficher d'erreur
+4. **Ressources insuffisantes** : Le pod n'a pas assez de mémoire/CPU
 
-Les contributions sont les bienvenues ! Si vous souhaitez améliorer ce projet, vous pouvez soumettre une demande de tirage (pull request).
+**Solutions :**
+
+1. **Vérifier les logs** :
+   ```bash
+   kubectl logs job/pg-backup-s3-docuseal-<timestamp>
+   ```
+
+2. **Vérifier l'état du pod** :
+   ```bash
+   kubectl describe pod <pod-name>
+   ```
+
+3. **Tester manuellement** :
+   ```bash
+   kubectl run test-backup --image=ghcr.io/gulrupa/gul-si-pg-backup:latest --rm -it --restart=Never --env="PG_HOST=..." --env="PG_PASSWORD=..." ...
+   ```
+
+### Erreurs courantes
+
+#### Erreur de connexion PostgreSQL
+```
+Error during pg_dump: CalledProcessError
+```
+- Vérifier les credentials PostgreSQL
+- Vérifier la connectivité réseau
+- Vérifier que l'utilisateur a les droits de backup
+
+#### Erreur S3
+```
+Credentials not available for S3 upload
+```
+- Vérifier les clés S3
+- Vérifier les permissions du bucket
+- Vérifier l'endpoint Scaleway
+
+#### Erreur de volume
+```
+Permission denied: /backup/
+```
+- Le volume n'est pas monté correctement
+- Vérifier la configuration du volume dans `deployment.yaml`
+
+### Monitoring
+
+#### Vérifier l'historique des jobs
+
+```bash
+# Jobs réussis
+kubectl get jobs --field-selector status.successful=1
+
+# Jobs échoués
+kubectl get jobs --field-selector status.failed=1
+```
+
+#### Surveiller les logs en temps réel
+
+```bash
+# Suivre les logs du CronJob
+kubectl logs -f cronjob/pg-backup-s3-docuseal
+```
+
+## Configuration avancée
+
+### Modifier la planification
+
+Le CronJob s'exécute par défaut tous les jours à 2h UTC. Pour modifier :
+
+```yaml
+spec:
+  schedule: "0 2 * * *"  # Format cron
+```
+
+Exemples :
+- `"0 */6 * * *"` : Toutes les 6 heures
+- `"0 2 * * 0"` : Tous les dimanches à 2h
+- `"0 2 1 * *"` : Le 1er de chaque mois à 2h
+
+### Limites de ressources
+
+```yaml
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+```
+
+### Timeout et retry
+
+```yaml
+activeDeadlineSeconds: 3600  # Timeout de 1 heure
+backoffLimit: 2              # Maximum 2 tentatives
+```
+
+## Sécurité
+
+- Les credentials sont stockés dans des secrets Kubernetes
+- Le volume temporaire est automatiquement nettoyé
+- Les fichiers de backup sont supprimés après upload
+- Le script utilise des timeouts pour éviter les blocages
+
+## Support
+
+En cas de problème :
+
+1. Vérifier les logs avec `kubectl logs`
+2. Tester la configuration avec `test_backup.py`
+3. Vérifier la connectivité réseau
+4. Contacter l'équipe DevOps
